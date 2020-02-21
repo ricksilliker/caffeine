@@ -1,0 +1,15 @@
+[metadata]
+title = "Joint Orient Offset"
+id = "com.defaults.jointOrientOffset"
+category = "joints"
+
+[properties]
+[properties.offset]
+type = "list"
+style = "vec3"
+default = [0, 0, 0]
+description = "Add this XYZ value to the current orientation."
+[properties.offset.items]
+type = "float"
+
+
