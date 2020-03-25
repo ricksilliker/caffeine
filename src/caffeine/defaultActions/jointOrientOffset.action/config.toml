@@ -6,7 +6,7 @@ category = "joints"
 [properties]
 [properties.offset]
 type = "list"
-style = "vec3"
+format = "vec3"
 default = [0, 0, 0]
 description = "Add this XYZ value to the current orientation."
 [properties.offset.items]

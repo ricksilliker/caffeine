@@ -36,6 +36,7 @@ def loadActionFromPath(path):
 
     return Action(builder, config), None
 
+
 def loadActionsFromDirectory(path):
     actions = []
 
@@ -69,3 +70,25 @@ class Action(object):
 
         self._builder = builder
         self._config = config
+
+    def run(self):
+        ctx = self.getContext()
+        response = self._builder.build(ctx)
+
+        return response
+
+
+class ActionResponse(object):
+    def __init__(self):
+        self._status = None
+        self._data = {}
+
+    def asDict(self):
+        result = {}
+
+        for k, v in self._data.items():
+            result[k] = v
+
+        result['status'] = self._status
+
+        return result
