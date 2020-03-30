@@ -10,10 +10,11 @@ PROJECT_NAME := caffeine
 VIRTUAL_ENV_DIR = venv
 
 # Maya
-DEFAULT_MAYA_VERSION = 2019
-MAYAPY = /Applications/Autodesk/maya${MAYA_VERSION}/Maya.app/Contents/bin/mayapy
-MAYA_VERSION = 2019
-MAYA_MODULE_PATH = ${WORKSPACE}/dist
+DEFAULT_MAYA_VERSION=2019
+MAYA=/Applications/Autodesk/maya${MAYA_VERSION}/Maya.app/Contents/bin/maya
+MAYAPY=/Applications/Autodesk/maya${MAYA_VERSION}/Maya.app/Contents/bin/mayapy
+MAYA_VERSION=2019
+MAYA_MODULE_PATH=${WORKSPACE}/dist
 
 # Push the variables to the env.
 export DEFAULT_MAYA_VERSION MAYA_VERSION WORKSPACE MAYA_MODULE_PATH PROJECT_NAME
@@ -51,6 +52,11 @@ test:
 	export PYTHONPATH=${CONDA_PREFIX}/lib/python2.7/site-packages:$PYTHONPATH && \
 	${MAYAPY} ./scripts/run_maya_tests.py
 
+
+.PHONY : run
+run:
+	export PYTHONPATH=${CONDA_PREFIX}/lib/python2.7/site-packages:$(WORKSPACE)/src:$PYTHONPATH && \
+	${MAYA} &
 
 .PHONY : help
 help: ${MMAKE}

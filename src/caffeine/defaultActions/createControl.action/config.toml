@@ -1,12 +1,12 @@
 [metadata]
 title = "Create Control"
 id = "com.defaults.createControl"
-category = "dag"
+category = "general"
 
 [properties]
 [properties.name]
 type = "string"
-pattern = "\w"
+pattern = "\\w"
 description = "Name of the new control object transform."
 [properties.shape]
 type = "string"

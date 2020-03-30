@@ -23,8 +23,13 @@ def loadActionFromPath(path):
 
         if name == 'builder.py':
             builderPath = os.path.join(path, name)
-            builderName = 'actions{0}'.format(os.path.basename(path))
-            builder = imp.load_source(builderName, builderPath)
+
+            with open(builderPath, 'r') as fp:
+                builderName = os.path.basename(path).replace('.action', '')
+                builder = types.ModuleType(builderName)
+                code = fp.read()
+                builder.__file__ = builderPath
+                exec code in builder.__dict__
 
     if config is None:
         err = dict(name='MissingConfigError', message='could not find Action config file', path=path)
@@ -34,7 +39,7 @@ def loadActionFromPath(path):
         err = dict(name='MissingBuilderError', message='could not find Action builder file', path=path)
         return None, err
 
-    return Action(builder, config), None
+    return ActionData(builder, config), None
 
 
 def loadActionsFromDirectory(path):
@@ -60,7 +65,7 @@ def loadDefaultActions():
     return loadActionsFromDirectory(path)
 
 
-class Action(object):
+class ActionData(object):
     def __init__(self, builder, config):
         if not isinstance(builder, types.ModuleType):
             raise ValueError('builder should be a valid python module object')
@@ -70,6 +75,18 @@ class Action(object):
 
         self._builder = builder
         self._config = config
+
+    @property
+    def config(self):
+        return self._config
+
+    @property
+    def category(self):
+        return self._config['metadata']['category']
+
+    @property
+    def title(self):
+        return self._config['metadata']['title']
 
     def run(self):
         ctx = self.getContext()

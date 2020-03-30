@@ -1,12 +1,12 @@
 [metadata]
 title = "Joint Orient Offset"
 id = "com.defaults.jointOrientOffset"
-category = "joints"
+category = "utils"
 
 [properties]
 [properties.offset]
-type = "list"
-format = "vec3"
+type = "array"
+semanticType = "VEC3"
 default = [0, 0, 0]
 description = "Add this XYZ value to the current orientation."
 [properties.offset.items]

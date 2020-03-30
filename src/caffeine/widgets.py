@@ -48,7 +48,7 @@ class AbstractWidget(QtWidgets.QWidget):
         if platform.system() == 'Darwin':
             # MacOS is special, and the QtCore.Qt.Window flag does not sort the windows properly,
             # so QtCore.Qt.Tool is added.
-            widget.setWindowFlags(widget.windowFlags() | QtCore.Qt.Tool)
+            widget.setWindowFlags(widget.windowFlags() | QtCore.Qt.Dialog)
         
         # Center the widget with Maya's main window.
         widget.move(app.frameGeometry().center() - QtCore.QRect(QtCore.QPoint(), widget.sizeHint()).center())
@@ -58,104 +58,163 @@ class AbstractWidget(QtWidgets.QWidget):
         return widget
 
 
-def getDataWidget(dataType, configuration):
-    field = None
-    
-    if dataType == 'string':
-        field = QtWidgets.QLineEdit()
-    elif dataType == 'float':
-        field = QtWidgets.QDoubleSpinBox()
-        field.setButtonSymbols(QtWidgets.QAbstractSpinBox.NoButtons)
-    elif dataType == 'list':
-        field = DataListWidget(configuration)
+def getDataWidget(config):
+    dataType = config.get('type', None)
 
+    if dataType == 'string':
+        field = StringPropertyWidget(config)
+    elif dataType == 'float':
+        field = FloatPropertyWidget(config)
+    elif dataType == 'array':
+        field = ArrayPropertyWidget(config)
+    else:
+        field = None
 
     return field
 
 
-def createFieldWithLabel(field, labelText):
-    widget = QtWidgets.QWidget()
-    layout = QtWidgets.QHBoxLayout(widget)
-    layout.setAlignment(QtCore.AlignLeft)
-    layout.setContentsMargins(0, 0, 0, 0)
-    layout.setSpacing(5)
-    
-    labelWidget = QtWidgets.QLabel(labelText)
-    layout.addWidget(labelWidget)
-    
-    layout.addWidget(field)
+class PropertyWidget(AbstractWidget):
+    propertyValueChanged = QtCore.Signal(object)
 
-    return widget
+    def __init__(self, data, parent=None):
+        super(PropertyWidget, self).__init__(parent=parent)
 
+        self._data = dict()
+        self._data.update(data)
 
-class DataStringWidget(AbstractWidget):
-    def __init__(self, config, parent=None):
-        super(DataStringWidget, self).__init__(parent=parent)
+        if 'config' in self._data:
+            self.configure()
 
-        if 'enum' in config:
-            self.field = QtWidgets.QComboBox()
-            self.field.addItems(config['enum'])
-            
-            if 'default' in config:
-                for i in range(self.field.count()):
-                    if self.field.itemText(i) == config['default']:
-                        self.field.setCurrentIndex(i)
-                        break
-        else:
-            self.field = QtWidgets.QLineEdit()
+            if 'description' in config:
+                self.setToolTip(config['description'])
 
-            if 'pattern' in config:
-                regex = QtCore.QRegExp(config['pattern'])
-                regexValidator = QtGui.QRegExpValidator(regex)
-                self.field.setValidator(regexValidator)
+    @property
+    def displayName(self):
+        return self._data['name']
 
-            if 'default' in config:
-                self.field.setText(config['default'])
+    @property
+    def dataBlock(self):
+        return self._data
 
-        if 'description' in config:
-            self.setToolTip(config['description'])
+    def configure(self):
+        LOG.exception('property configure method not implemented')
 
-        self.layout().addWidget(self.field)
+    def on_data_changed(self, value):
+        requestBody = dict(widgetValue=value)
+        self.propertyValueChanged.emit(requestBody)
 
-
-class DataFloatWidget(AbstractWidget):
-    def __init__(self, config, parent=None):
-        super(DataFloatWidget, self).__init__(parent=parent)
-
-        self.field = QtWidgets.QDoubleSpinBox()
-        self.field.setButtonSymbols(QtWidgets.QAbstractSpinBox.NoButtons)
+    def configureEnumField(self, config):
+        field = QtWidgets.QComboBox()
+        field.addItems(config['enum'])
         
-        if 'description' in config:
-            self.field.setToolTip(config['description'])
+        if 'default' in config:
+            for i in range(field.count()):
+                if field.itemText(i) == config['default']:
+                    field.setCurrentIndex(i)
+                    break
+
+        field.currentTextChanged(self.on_data_changed)
+
+        return field
+
+    def configureFloatField(self, config):
+        field = QtWidgets.QDoubleSpinBox()
+        field.setButtonSymbols(QtWidgets.QAbstractSpinBox.NoButtons)
 
         if 'minimum' in config:
-            self.field.setMinimum(config['minimum'])
+            field.setMinimum(config['minimum'])
 
         if 'maximum' in config:
-            self.field.setMaximum(config['maximum'])
+            field.setMaximum(config['maximum'])
 
-        self.layout().addWidget(self.field)
+        if 'default' in config:
+            field.setValue(config['default'])
+
+        field.valueChanged.connect(self.on_data_changed)
+
+        return field
+
+    def configureStringField(self, config):
+        field = QtWidgets.QLineEdit()
+
+        if 'pattern' in config:
+            regex = QtCore.QRegExp(config['pattern'])
+            regexValidator = QtGui.QRegExpValidator(regex)
+            field.setValidator(regexValidator)
+
+        if 'default' in config:
+            field.setText(config['default'])
+        
+        field.textChanged.connect(self.on_data_changed)
+
+        return field
 
 
-class DataListWidget(AbstractWidget):
+class StringPropertyWidget(PropertyWidget):
+    def __init__(self, data, parent=None):
+        super(StringPropertyWidget, self).__init__(parent=parent)
+
+    def configure(self):
+        config = self._data['config']
+
+        if 'enum' in config:
+            field = self.configureEnumField(config)
+        else:
+            field = self.configureStringField(config)
+
+        self.layout().addWidget(field)
+
+
+class FloatPropertyWidget(PropertyWidget):
     def __init__(self, config, parent=None):
-        super(DataListWidget, self).__init__(parent=parent)
+        super(FloatPropertyWidget, self).__init__(parent=parent)
 
-        self.layout().setDirection(QtWidgets.QBoxLayout.LeftToRight)
+    def configure(self):
+        config = self._data['config']
 
-        self.fields = []
+        if 'enum' in config:
+            self.configureEnumField(config)
+        else:
+            self.configureFloatField(config)
 
-        if 'format' in config:
-            if config['format'] == 'vec3':
+        self.layout().addWidget(field)
+
+
+class ArrayPropertyWidget(PropertyWidget):
+    def __init__(self, config, parent=None):
+        super(ArrayPropertyWidget, self).__init__(parent=parent)
+
+    def createFieldWithLabelWidget(self):
+        widget = QtWidgets.QWidget()
+        layout = QtWidgets.QFormLayout(widget)
+        layout.setAlignment(QtCore.AlignLeft)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(0)
+
+        return widget
+
+    def configure(self):
+        config = self._data['config']
+
+        if 'semanticType' in config:
+            if config['semanticType'] == 'VEC3':
+                widget = createFieldWithLabelWidget()
+
                 for x, axis in enumerate(['X', 'Y', 'Z']):
-                    field = getDataWidget(config['items']['type'], config['items'])
-                    
-                    if 'default' in config:
-                        field.setValue(config['default'][x])
+                    item_config = dict()
+                    item_config.update(config)
+                    item_config.update(config['items'])
 
-                    if 'description' in config:
-                        field.setToolTip(config['description'])
+                    if 'default' in item_config:
+                        item_config['default'] = item_config['default'][x]
 
-                    self.fields.append(field)
-                    widget = createFieldWithLabel(field, axis + ':')
-                    self.layout().addWidget(widget)
+                    if 'enum' in config:
+                        field = self.configureEnumField(item_config)
+                    elif item_config['type'] == 'string':
+                        field = self.configureStringField(item_config)
+                    elif item_config['type'] == 'float':
+                        field = self.configureFloatField(item_config)
+                    else:
+                        continue
+
+                    widget.layout().addRow(axis + ':', field)

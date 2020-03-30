@@ -1,6 +1,7 @@
 from PySide2 import QtWidgets, QtCore, QtGui
 
 import widgets
+import actions
 
 
 class MainWidget(widgets.AbstractWidget):
@@ -45,9 +46,12 @@ class BuildWidget(widgets.AbstractWidget):
     def __init__(self, parent=None):
         super(BuildWidget, self).__init__(parent=parent)
 
-        self.executionHierarchyWidget = ExecutionHierarchyWidget()
-        self.layout().addWidget(self.executionHierarchyWidget)
-        self.executionHierarchyWidget.setSizePolicy(QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Fixed)
+        self.newActionsWidget = NewActionsWidget()
+        self.layout().addWidget(self.newActionsWidget)
+
+        self.actionOutlinerWidget = ActionOutlinerWidget()
+        self.layout().addWidget(self.actionOutlinerWidget)
+        self.actionOutlinerWidget.setSizePolicy(QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Fixed)
 
         self.actionSettingsWidget = ActionSettingsWidget()
         self.layout().addWidget(self.actionSettingsWidget)
@@ -59,12 +63,57 @@ class BuildWidget(widgets.AbstractWidget):
         return QtCore.QSize(300, 450)
 
 
-class ExecutionHierarchyWidget(QtWidgets.QListWidget):
+class NewActionsWidget(widgets.AbstractWidget):
     def __init__(self, parent=None):
-        super(ExecutionHierarchyWidget, self).__init__(parent=parent)
+        super(NewActionsWidget, self).__init__(parent=parent)
 
-        testItem = QtWidgets.QListWidgetItem('Test Item')
-        self.addItem(testItem)
+        self.layout().setDirection(QtWidgets.QBoxLayout.LeftToRight)
+
+        self.generalActionsButton = QtWidgets.QToolButton()
+        self.generalActionsButton.setPopupMode(QtWidgets.QToolButton.InstantPopup)
+        self.layout().addWidget(self.generalActionsButton)
+        
+        self.jointActionsButton = QtWidgets.QToolButton()
+        self.jointActionsButton.setPopupMode(QtWidgets.QToolButton.InstantPopup)
+        self.layout().addWidget(self.jointActionsButton)
+        
+        self.deformActionsButton = QtWidgets.QToolButton()
+        self.deformActionsButton.setPopupMode(QtWidgets.QToolButton.InstantPopup)
+        self.layout().addWidget(self.deformActionsButton)
+
+        self.utilActionsButton = QtWidgets.QToolButton()
+        self.utilActionsButton.setPopupMode(QtWidgets.QToolButton.InstantPopup)
+        self.layout().addWidget(self.utilActionsButton)
+
+        self.loadAvailableActions()
+
+    def createActionMenu(self, categoryActions):
+        menu = QtWidgets.QMenu(self)
+
+        for a in categoryActions:
+            menu.addAction(a.title)
+        
+        return menu
+
+    def loadAvailableActions(self):
+        allActions = actions.loadDefaultActions()
+
+        generalMenu = self.createActionMenu([a for a in allActions if a.category == 'general'])
+        self.generalActionsButton.setMenu(generalMenu)
+
+        utilMenu = self.createActionMenu([a for a in allActions if a.category == 'utils'])
+        self.utilActionsButton.setMenu(utilMenu)
+
+
+class ActionOutlinerWidget(QtWidgets.QTreeWidget):
+    def __init__(self, parent=None):
+        super(ActionOutlinerWidget, self).__init__(parent=parent)
+
+        self.setHeaderHidden(True)
+
+        testItem = QtWidgets.QTreeWidgetItem()
+        testItem.setText(0, 'Test Item')
+        self.addTopLevelItem(testItem)
 
     def sizeHint(self):
         return QtCore.QSize(300, 150)
@@ -74,8 +123,7 @@ class ActionSettingsWidget(widgets.AbstractWidget):
     def __init__(self, parent=None):
         super(ActionSettingsWidget, self).__init__(parent=parent)
 
-        self.actionFormWidget = ActionsFormWidget()
-        self.actionFormWidget.addActionWidget(action={})
+        self.actionFormWidget = ActionWidget()
 
         scrollArea = QtWidgets.QScrollArea()
         scrollArea.setSizeAdjustPolicy(QtWidgets.QAbstractScrollArea.AdjustToContents)
@@ -92,15 +140,6 @@ class ActionSettingsWidget(widgets.AbstractWidget):
         return QtCore.QSize(300, 300)
 
 
-class ActionsFormWidget(widgets.AbstractWidget):
-    def __init__(self, parent=None):
-        super(ActionsFormWidget, self).__init__(parent=parent)
-
-    def addActionWidget(self, action):
-        widget = ActionWidget.fromData(action)
-        self.layout().addWidget(widget)
-
-
 class ActionWidget(widgets.AbstractWidget):
     def __init__(self, parent=None):
         super(ActionWidget, self).__init__(parent=parent)
@@ -111,10 +150,12 @@ class ActionWidget(widgets.AbstractWidget):
         self.actionPropertiesWidget = ActionPropertiesWidget()
         self.layout().addWidget(self.actionPropertiesWidget)
 
-    @classmethod
-    def fromData(cls, actionData):
-        widget = cls()
-        widget.actionPropertiesWidget.loadFromData(data=actionData)
+    def loadFromAction(self, actionData):
+        self.actionHeaderWidget.clean()
+        self.actionPropertiesWidget.clean()
+
+        self.actionHeaderWidget.load(actionData)
+        self.actionPropertiesWidget.load(actionData)
 
         return widget
 
@@ -137,6 +178,12 @@ class ActionHeaderWidget(widgets.AbstractWidget):
         self.settingsButton = QtWidgets.QPushButton('[S]')
         self.layout().addWidget(self.settingsButton)
 
+    def clean(self):
+        self.titleField.setText('')
+
+    def load(self, actionData):
+        self.titleField.setText(actionData['title'])
+
 
 class ActionPropertiesWidget(widgets.AbstractWidget):
     def __init__(self, parent=None):
@@ -145,9 +192,16 @@ class ActionPropertiesWidget(widgets.AbstractWidget):
         self.formLayout = QtWidgets.QFormLayout()
         self.layout().addLayout(self.formLayout)
 
-    def loadFromData(self, data):
-        self.formLayout.addRow('Test Item', QtWidgets.QPushButton('Click Me'))
+    def clean(self):
+        for rowIndex in reversed(range(self.formLayout.rowCount)):
+            self.formLayout.removeRow(rowIndex)
 
+    def load(self, actionData):
+        for p in actionData.props:
+            fieldWidget = widgets.getDataWidget(p.config)
+            fieldWidget.setCurrentValue(p.currentValue)
+            self.formLayout.addRow(fieldWidget.displayName, fieldWidget)
+        
 
 class RunnerWidget(widgets.AbstractWidget):
     def __init__(self, parent=None):
@@ -159,7 +213,15 @@ class RunnerWidget(widgets.AbstractWidget):
         self.layout().addWidget(self.buildButton)
 
         self.buildOptionsButton = QtWidgets.QToolButton()
+        self.buildOptionsButton.setMenu(self.getMenu())
+        self.buildOptionsButton.setPopupMode(QtWidgets.QToolButton.InstantPopup)
         self.layout().addWidget(self.buildOptionsButton)
+
+    def getMenu(self):
+        menu = QtWidgets.QMenu(self)
+        menu.addAction('Build in Background')
+
+        return menu
 
     def sizeHint(self):
         return QtCore.QSize(300, 50)
