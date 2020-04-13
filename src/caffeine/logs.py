@@ -12,15 +12,19 @@ def getLogger(name=None, level=logging.DEBUG, propagate=False):
     if not logger.handlers:
         logger.addHandler(logging.StreamHandler())
 
-    adapter = CustomAdapter(logger, dict())
+    adapter = StructuredLogAdapter(logger, dict())
 
     return adapter
 
 
-class CustomAdapter(logging.LoggerAdapter):
+class StructuredLogAdapter(logging.LoggerAdapter):
     def process(self, msg, kwargs):
         record = '{0} \n'.format(msg)
         for k, v in kwargs.items():
             record += '\t{0}: {1}\n'.format(k, v)
 
         return record, dict()
+
+
+def getActionLogger(taskName):
+    return getLogger('caffeine.{0}'.format(taskName), level=logging.INFO)

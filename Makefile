@@ -6,56 +6,40 @@ MMAKE := /usr/local/bin/mmake
 WORKSPACE ?= ${PWD}
 PROJECT_NAME := caffeine
 
-# Python
-VIRTUAL_ENV_DIR = venv
-
 # Maya
-DEFAULT_MAYA_VERSION=2019
-MAYA=/Applications/Autodesk/maya${MAYA_VERSION}/Maya.app/Contents/bin/maya
-MAYAPY=/Applications/Autodesk/maya${MAYA_VERSION}/Maya.app/Contents/bin/mayapy
-MAYA_VERSION=2019
-MAYA_MODULE_PATH=${WORKSPACE}/dist
+MAYA_VERSION = 2019
+MAYA = /Applications/Autodesk/maya${MAYA_VERSION}/Maya.app/Contents/bin/maya
+MAYAPY = /Applications/Autodesk/maya${MAYA_VERSION}/Maya.app/Contents/bin/mayapy
+
 
 # Push the variables to the env.
-export DEFAULT_MAYA_VERSION MAYA_VERSION WORKSPACE MAYA_MODULE_PATH PROJECT_NAME
+export MAYA_VERSION WORKSPACE PROJECT_NAME
 
-toggleEnv:
+# Enable conda environment
+.PHONY: conda-on
+conda-on:
 	conda activate caffeine-dev
 
 # Remove all files related to build Python packages.
-.PHONY : clean
+.PHONY: clean
 clean:
-	rm -Rf build dist src/*.egg-info .eggs *.egg
+	rm -rf ${WORKSPACE}/dist
 	find . -name "*.pyc" -exec rm -f {} \;
 
 # Build into a useable Maya module in the dist directory at the project root.
-.PHONY : build
+.PHONY: build
 build:
-	mkdir -p ${WORKSPACE}/dist/${PROJECT_NAME}/scripts/${PROJECT_NAME}
-	cp -r ${WORKSPACE}/src/${PROJECT_NAME} ${WORKSPACE}/dist/${PROJECT_NAME}/scripts
-	cp ${WORKSPACE}/src/${PROJECT_NAME}.mod ${WORKSPACE}/dist/${PROJECT_NAME}.mod
-	cp ${WORKSPACE}/src/userSetup.py ${WORKSPACE}/dist/${PROJECT_NAME}/scripts/userSetup.py
+	mkdir -p ${WORKSPACE}/dist
 
-# Install with symlinks to this folder for faster development.
-.PHONY : develop
-develop:
-	virtualenv -p python2.7 --clear ${VIRTUAL_ENV_DIR}
-	source ./venv/bin/activate && pip install -r ./requirements.txt
-	rm -rf ${WORKSPACE}/dist
-	mkdir -p ${WORKSPACE}/dist/${PROJECT_NAME}/scripts
-	ln -sf ${WORKSPACE}/src/${PROJECT_NAME} ${WORKSPACE}/dist/${PROJECT_NAME}/scripts
-	ln -sf ${WORKSPACE}/src/${PROJECT_NAME}.mod ${WORKSPACE}/dist/${PROJECT_NAME}.mod
-	ln -sf ${WORKSPACE}/src/userSetup.py ${WORKSPACE}/dist/${PROJECT_NAME}/scripts/userSetup.py
-
-.PHONY : test
+.PHONY: test
 test:
-	export PYTHONPATH=${CONDA_PREFIX}/lib/python2.7/site-packages:$PYTHONPATH && \
+	export PYTHONPATH=${CONDA_PREFIX}/lib/python2.7/site-packages:${PYTHONPATH} && \
 	${MAYAPY} ./scripts/run_maya_tests.py
 
 
-.PHONY : run
-run:
-	export PYTHONPATH=${CONDA_PREFIX}/lib/python2.7/site-packages:$(WORKSPACE)/src:$PYTHONPATH && \
+.PHONY: develop
+develop:
+	export PYTHONPATH=${CONDA_PREFIX}/lib/python2.7/site-packages:$(WORKSPACE)/src:${PYTHONPATH} && \
 	${MAYA} &
 
 .PHONY : help

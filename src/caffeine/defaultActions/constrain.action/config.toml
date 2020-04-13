@@ -1,0 +1,21 @@
+[metadata]
+title = "Constrain"
+id = "com.defaults.constrain"
+category = "general"
+
+[properties]
+[properties.target]
+type = "string"
+format = "nodePath"
+description = "Node to transform to."
+
+[properties.followers]
+type = "list"
+description = "Nodes to transform with target."
+[properties.followers.items]
+type = "string"
+format = "nodePath"
+
+[properties.maintainOffset]
+type = "bool"
+description = "Snap followers to target."

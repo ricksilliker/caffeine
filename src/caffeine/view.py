@@ -69,20 +69,19 @@ class NewActionsWidget(widgets.AbstractWidget):
 
         self.layout().setDirection(QtWidgets.QBoxLayout.LeftToRight)
 
-        self.generalActionsButton = QtWidgets.QToolButton()
-        self.generalActionsButton.setPopupMode(QtWidgets.QToolButton.InstantPopup)
+        self.generalActionsButton = QtWidgets.QPushButton('G')
         self.layout().addWidget(self.generalActionsButton)
         
-        self.jointActionsButton = QtWidgets.QToolButton()
-        self.jointActionsButton.setPopupMode(QtWidgets.QToolButton.InstantPopup)
+        self.jointActionsButton = QtWidgets.QPushButton('J')
         self.layout().addWidget(self.jointActionsButton)
         
-        self.deformActionsButton = QtWidgets.QToolButton()
-        self.deformActionsButton.setPopupMode(QtWidgets.QToolButton.InstantPopup)
+        self.kinematicsActionsButton = QtWidgets.QPushButton('K')
+        self.layout().addWidget(self.kinematicsActionsButton)
+
+        self.deformActionsButton = QtWidgets.QPushButton('D')
         self.layout().addWidget(self.deformActionsButton)
 
-        self.utilActionsButton = QtWidgets.QToolButton()
-        self.utilActionsButton.setPopupMode(QtWidgets.QToolButton.InstantPopup)
+        self.utilActionsButton = QtWidgets.QPushButton('U')
         self.layout().addWidget(self.utilActionsButton)
 
         self.loadAvailableActions()

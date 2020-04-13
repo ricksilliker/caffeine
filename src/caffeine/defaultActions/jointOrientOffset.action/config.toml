@@ -4,6 +4,11 @@ id = "com.defaults.jointOrientOffset"
 category = "utils"
 
 [properties]
+[properties.target]
+type = "string"
+format = "nodePath"
+description = "Node to adjust orientation for."
+
 [properties.offset]
 type = "array"
 semanticType = "VEC3"
@@ -11,5 +16,3 @@ default = [0, 0, 0]
 description = "Add this XYZ value to the current orientation."
 [properties.offset.items]
 type = "float"
-
-
