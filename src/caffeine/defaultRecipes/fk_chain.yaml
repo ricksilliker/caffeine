@@ -1,0 +1,16 @@
+stages:
+  - fk_0:
+    steps:
+      - com.caffeine.createJoint:
+        position: [0, 0, 0]
+        orient: [0, 0, 0]
+        ssc: false
+        name: "{stage.name}"
+      - com.caffeine.createControl:
+        name: "{createJoint.response.name}_ctl"
+        shape: circle
+      - com.caffeine.constrain:
+        target: "{createControl.response.node}"
+        followers:
+          - "{createJoint.response.node}"
+        maintainOffset: false

@@ -1,0 +1,4 @@
+pytest
+flake8
+pylint
+git+https://github.com/joshcareybrazen/mayatest.git#egg=mayatest

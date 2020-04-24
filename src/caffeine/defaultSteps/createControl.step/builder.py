@@ -28,6 +28,10 @@ def build(ctx):
             mpoint = OpenMaya.MPoint(pt[0], pt[1], pt[2], 1.0)
             points.append(mpoint)
 
+        degree = shapeData.get('degree', 3)
+        
+        knots = shapeData.get('knots', [])
+
         addShape(transform, points, knots, degree, form)
         
 

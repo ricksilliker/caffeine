@@ -1,0 +1,16 @@
+metadata:
+  title: Constrain
+  id: com.caffeine.constrain
+  category: general
+  description: Make one or more nodes match transformations with a target node.
+properties:
+  target:
+    type: nodePath
+    description: Node to transform to.
+  followers:
+    type: list
+    items: nodePath
+    description: Nodes to transform with target.
+  maintainOffset:
+    type: bool
+    description: Snap followers to target.

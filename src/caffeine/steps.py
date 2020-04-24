@@ -1,14 +1,16 @@
 import os
-import logs
-import toml
-import imp
 import types
 
+import yaml
+
+from caffeine import logs
+
+
 LOG = logs.getLogger(__name__)
-ACTION_SUFFIX = '.action'
+STEP_SUFFIX = '.step'
 
 
-def loadActionFromPath(path):
+def loadStepFromPath(path):
     config = None
     builder = None
     
@@ -17,64 +19,76 @@ def loadActionFromPath(path):
         if builder is not None and config is not None:
             break
 
-        if name == 'config.toml':
+        if name == 'config.yaml':
             configPath = os.path.join(path, name)
-            config = toml.load(configPath)
+            with open(configPath, 'r') as fp:
+                config = yaml.full_load(fp)
 
         if name == 'builder.py':
             builderPath = os.path.join(path, name)
 
             with open(builderPath, 'r') as fp:
-                builderName = os.path.basename(path).replace('.action', '')
+                builderName = os.path.basename(path).replace('.step', '')
                 builder = types.ModuleType(builderName)
                 code = fp.read()
                 builder.__file__ = builderPath
                 exec code in builder.__dict__
 
     if config is None:
-        err = dict(name='MissingConfigError', message='could not find Action config file', path=path)
+        err = dict(name='MissingConfigError', message='could not find Step config file', path=path)
         return None, err
 
     if builder is None:
-        err = dict(name='MissingBuilderError', message='could not find Action builder file', path=path)
+        err = dict(name='MissingBuilderError', message='could not find Step builder file', path=path)
         return None, err
 
-    return ActionData(builder, config), None
+    return StepRunner(builder, config), None
 
 
-def loadActionsFromDirectory(path):
-    actions = []
+def loadStepsFromDirectory(path):
+    steps = []
 
     names = os.listdir(path)
     for name in names:
-        if not name.endswith(ACTION_SUFFIX):
+        if not name.endswith(STEP_SUFFIX):
             continue
         
-        actionPath = os.path.join(path, name)
-        action, err = loadActionFromPath(actionPath)
+        stepPath = os.path.join(path, name)
+        step, err = loadStepFromPath(stepPath)
         if err is not None:
-            LOG.error('failed to load action', **err)
-        actions.append(action)
+            LOG.error('failed to load step', **err)
+        steps.append(step)
 
-    return actions
+    return steps
 
 
-def loadDefaultActions():
-    path = os.path.join(os.path.dirname(__file__), 'defaultActions')
+def loadDefaultSteps():
+    path = os.path.join(os.path.dirname(__file__), 'defaultSteps')
     
-    return loadActionsFromDirectory(path)
+    return loadStepsFromDirectory(path)
 
 
-class ActionData(object):
+def getAvailableStepsByID():
+    result = {}
+    
+    for s in loadDefaultSteps():
+        result[s.config['id']] = s
+
+    return result
+
+
+class StepRunner(object):
     def __init__(self, builder, config):
         if not isinstance(builder, types.ModuleType):
             raise ValueError('builder should be a valid python module object')
 
         if not isinstance(config, dict):
+            LOG.info(config)
             raise ValueError('config should be a valid dictionary object')
 
         self._builder = builder
         self._config = config
+        self._props = dict()
 
     @property
     def config(self):
@@ -88,14 +102,30 @@ class ActionData(object):
     def title(self):
         return self._config['metadata']['title']
 
+    def loadData(self, propData):
+        self._props.update(propData)
+
+    def getContext(self):
+        result = dict()
+        result.update(self._props)
+        return result
+
     def run(self):
         ctx = self.getContext()
         response = self._builder.build(ctx)
 
+        if response is None:
+            LOG.error('step missing StepReponse object')
+            return
+        
+        if not isinstance(response, StepResponse):
+            LOG.error('step did not return a valid StepResponse object')
+            return
+
         return response
 
 
-class ActionResponse(object):
+class StepResponse(object):
     def __init__(self):
         self._status = None
         self._data = {}

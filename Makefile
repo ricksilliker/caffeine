@@ -1,9 +1,9 @@
 .DEFAULT_GOAL := help
 
 # Setup
+WORKSPACE = ${CURDIR}
 SHELL := /bin/zsh
 MMAKE := /usr/local/bin/mmake
-WORKSPACE ?= ${PWD}
 PROJECT_NAME := caffeine
 
 # Maya
@@ -31,16 +31,18 @@ clean:
 build:
 	mkdir -p ${WORKSPACE}/dist
 
-.PHONY: test
-test:
-	export PYTHONPATH=${CONDA_PREFIX}/lib/python2.7/site-packages:${PYTHONPATH} && \
-	${MAYAPY} ./scripts/run_maya_tests.py
+
+.PHONY: unit-test
+unit-test:
+	export PYTHONPATH=${CONDA_PREFIX}/lib/python2.7/site-packages:${WORKSPACE}/src:${PYTHONPATH} && \
+	${CONDA_PREFIX}/bin/mayatest -m 2019 --pytest="tests/test_steps.py"
 
 
 .PHONY: develop
 develop:
 	export PYTHONPATH=${CONDA_PREFIX}/lib/python2.7/site-packages:$(WORKSPACE)/src:${PYTHONPATH} && \
 	${MAYA} &
+
 
 .PHONY : help
 help: ${MMAKE}

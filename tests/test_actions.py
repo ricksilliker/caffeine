@@ -20,7 +20,7 @@ class TestActions(unittest.TestCase):
             shutil.rmtree(self._tempActionDirectory)
 
     def test_loadDefaultActionsValid(self):
-        defaultActions = actions.loadDefaultActions()
+        defaultActions = actions.loadDefault()
         self.assertGreater(len(defaultActions), 0)
 
     def test_loadEmptyActionInvalid(self):

@@ -1,0 +1,17 @@
+metadata:
+  title: Create Control
+  id: com.caffeine.createControl
+  category: general
+properties:
+  name:
+    type: string
+    pattern: "\\w"
+    description: Name of the new control object transform.
+  shape:
+    type: string
+    enum:
+      - circle
+      - square
+      - cube
+    default: circle
+    description: Nurbs shape to generate.

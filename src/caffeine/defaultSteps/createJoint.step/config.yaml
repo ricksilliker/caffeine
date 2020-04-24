@@ -1,0 +1,18 @@
+metadata:
+  title: Create Joint
+  id: com.caffeine.createJoint
+  category: utils
+  description: Create a new joint node.
+properties:
+  name:
+    type: str
+    description: Name to give the new joint.
+  ssc:
+    type: bool
+    description: Toggle segment scale compensate.
+  position:
+    type: vec3
+    description: World position in XYZ.
+  orient:
+    type: vec3
+    description: World orientation.
