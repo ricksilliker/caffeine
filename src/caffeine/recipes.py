@@ -1,12 +1,17 @@
 import os
 import copy
+import re
 
 import yaml
 
 from caffeine import logs, steps
 
 
+DEFAULT_RECIPES = os.path.join(os.path.dirname(__file__), 'defaultRecipes')
 LOG = logs.getLogger(__name__)
+VARIABLE_EXPR = re.compile(r'^\${(.*)}')
+STAGE_EXPR = re.compile(r'^(stage(\d*).(.*))')
+STEP_RESPONSE_EXPR = re.compile(r'^((step)(\d*).(response).(.*))')
 
 
 def loadRecipeFromPath(path):
@@ -22,17 +27,33 @@ def loadRecipeFromPath(path):
     return recipe, None
 
 
+def loadRecipesFromPath(path):
+    recipes = []
+
+    for f in os.listdir(path):
+        recipe, err = loadRecipeFromPath(os.path.join(path, f))
+        if err is None:
+            recipes.append(recipe)
+
+    return recipes
+
+
+def loadDefaultRecipes():
+    return loadRecipesFromPath(DEFAULT_RECIPES)
+
+
 class Recipe(object):
     def __init__(self):
         self._data = {}
         self._currentStage = 0
         self._currentStep = 0
+        self._responses = []
 
     @classmethod
     def fromPath(cls, filepath):
         recipeData = loadRecipeFromPath(filepath)
         recipe = cls()
-        recipe._data = recipeData
+        recipe._data = recipeData[0]
 
         return recipe
 
@@ -63,6 +84,9 @@ class Recipe(object):
     def getStepProps(self, stepData):
         return stepData.values()[0]
 
+    def getStepResponse(self, stageIndex, stepIndex):
+        return self._responses[stageIndex][stepIndex]
+
     def getStepsFromStage(self, index):
         st = self.stages[index]
 
@@ -81,11 +105,35 @@ class Recipe(object):
 
         return declaredSteps, None
 
+    def resolveStepProps(self, props):
+        for k, v in props.items():
+            if not isinstance(v, (str, unicode)):
+                continue
+
+            variableMatch = re.match(VARIABLE_EXPR, v)
+            if variableMatch is None:
+                continue
+            fullVar = variableMatch.group(1)
+            stageMatch = re.match(STAGE_EXPR, fullVar)
+            if stageMatch:
+                stageIndex = int(stageMatch.group(2))
+                stage = self.stages[stageIndex]
+                if 'name' in stageMatch.group(3):
+                    props[k] = stage['name']
+            
+            stepMatch = re.match(STEP_RESPONSE_EXPR, fullVar)
+            if stepMatch:
+                stepIndex = int(stepMatch.group(3))
+                stepResponse = self.getStepResponse(self._currentStage, stepIndex)
+                props[k] = stepResponse[stepMatch.group(5)]
+
     def replay(self):
         pass
 
     def revert(self):
-        pass
+        self._responses = []
+        self._currentStage = 0
+        self._currentStep = 0
 
     def build(self, stepThrough=True):
         if self._currentStage == (self.numStages - 1):
@@ -97,8 +145,14 @@ class Recipe(object):
         stepID = self.getStepID(stepData)
         allSteps = steps.getAvailableStepsByID()
         stepRunner = allSteps[stepID]
-        stepRunner.loadData(self.getStepProps(stepData))
-        stepRunner.run()
+        stepProps = self.getStepProps(stepData)
+        self.resolveStepProps(stepProps)
+        stepRunner.loadData(stepProps)
+        stepResponse = stepRunner.run()
+        LOG.info('Step %s completed with a status %s', self._currentStep, stepResponse['status'])
+        if len(self._responses) - 1 < self._currentStage:
+            self._responses.append([])
+        self._responses[self._currentStage].append(stepResponse)
 
         if self._currentStep >= self.numStepsInStage(self._currentStage):
             if self._currentStage != (self.numStages - 1):

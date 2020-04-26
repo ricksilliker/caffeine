@@ -4,20 +4,26 @@ import json
 from maya import cmds
 from maya.api import OpenMaya
 
+from caffeine.logs import getActionLogger
+from caffeine import steps
+
 
 DATA_FILE = os.path.join(os.path.dirname(__file__), 'defaultControls.json')
+LOG = getActionLogger('createControl')
 
 
 def build(ctx):
-    mobject = OpenMaya.MFnDagNode('transform', ctx['name'])
-    transform = OpenMaya.MFnDagNode(mobject)
+    mobject = OpenMaya.MFnDagNode().create('transform', name=ctx['name'])
+    LOG.info(mobject)
 
     with open(DATA_FILE, 'r') as fp:
         controlsDict = json.load(fp)
-
         shapeData = controlsDict.get(ctx['shape'], None)
         if shapeData is None:
-            return
+            return steps.StepResponse.fromDict({
+                'status': 400,
+                'node': mobject
+            })
 
         form = OpenMaya.MFnNurbsCurve.kPeriodic
         if not shapeData.get('periodic', False):
@@ -32,18 +38,25 @@ def build(ctx):
         
         knots = shapeData.get('knots', [])
 
-        addShape(transform, points, knots, degree, form)
+        # FUTURE: Figure out why this doesnt log.
+        LOG.info('Getting shape data.', degree=degree, knots=knots, CVs=points)
+
+        addShape(mobject, points, knots, degree, form)
+
+    return steps.StepResponse.fromDict({
+        'status': 200,
+        'node': mobject
+    })
         
 
 def addShape(dagTransform, controlPoints, knots, degree, form):
-    newCurve = OpenMaya.MFnNurbsCurve()
-    newCurve.degree = degree
-    newCurve.form = form
-    newCurve.setCVPositions(space=OpenMaya.MSpace.kObject)
-    newCurve.setKnots(knots, knots[0], len(knots)-1)
-
-    dagTransform.addChild(
-        node=newCurve,
-        index=OpenMaya.MFnDagNode.kNextPos,
-        keepExistingParents=False
+    newCurve = OpenMaya.MFnNurbsCurve().create(
+        controlPoints,
+        knots,
+        degree,
+        form,
+        False,
+        True,
+        dagTransform
     )
+    return newCurve

@@ -72,7 +72,7 @@ def getAvailableStepsByID():
     result = {}
     
     for s in loadDefaultSteps():
-        result[s.config['id']] = s
+        result[s.config['metadata']['id']] = s
 
     return result
 
@@ -85,6 +85,8 @@ class StepRunner(object):
         if not isinstance(config, dict):
             LOG.info(config)
             raise ValueError('config should be a valid dictionary object')
+
+        # FUTURE: add validation to make sure step has an id
 
         self._builder = builder
         self._config = config
@@ -112,30 +114,42 @@ class StepRunner(object):
 
     def run(self):
         ctx = self.getContext()
-        response = self._builder.build(ctx)
+        try:
+            response = self._builder.build(ctx)
+        except Exception as e:
+            LOG.exception(e)
+            response = StepResponse.fromDict({'status': 400})
 
         if response is None:
             LOG.error('step missing StepReponse object')
-            return
+            return StepResponse.fromDict({'status': 500})
         
         if not isinstance(response, StepResponse):
             LOG.error('step did not return a valid StepResponse object')
-            return
+            return StepResponse.fromDict({'status': 500})
 
         return response
 
 
 class StepResponse(object):
     def __init__(self):
-        self._status = None
         self._data = {}
+
+    @classmethod
+    def fromDict(cls, d):
+        resp = cls()
+        for k, v in d.items():
+            resp._data[k] = v
+        
+        return resp
+
+    def __getitem__(self, key):
+        return self._data.get(key, None)
 
     def asDict(self):
         result = {}
 
         for k, v in self._data.items():
             result[k] = v
-
-        result['status'] = self._status
 
         return result

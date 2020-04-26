@@ -35,7 +35,7 @@ build:
 .PHONY: unit-test
 unit-test:
 	export PYTHONPATH=${CONDA_PREFIX}/lib/python2.7/site-packages:${WORKSPACE}/src:${PYTHONPATH} && \
-	${CONDA_PREFIX}/bin/mayatest -m 2019 --pytest="tests/test_steps.py"
+	${CONDA_PREFIX}/bin/mayatest -m 2019 --pytest="tests"
 
 
 .PHONY: develop
