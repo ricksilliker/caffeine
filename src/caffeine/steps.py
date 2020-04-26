@@ -107,6 +107,15 @@ class StepRunner(object):
     def loadData(self, propData):
         self._props.update(propData)
 
+    def saveData(self, response):
+        ctx = self.getContext()
+        try:
+            response = self._builder.save(ctx, response)
+        except Exception as e:
+            LOG.exception(e)
+        
+        return ctx
+
     def getContext(self):
         result = dict()
         result.update(self._props)

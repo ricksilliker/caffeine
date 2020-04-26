@@ -48,12 +48,15 @@ class Recipe(object):
         self._currentStage = 0
         self._currentStep = 0
         self._responses = []
+        self._buildPath = None
+        self._sourcePath = None
 
     @classmethod
     def fromPath(cls, filepath):
         recipeData = loadRecipeFromPath(filepath)
         recipe = cls()
         recipe._data = recipeData[0]
+        recipe._sourcePath = filepath
 
         return recipe
 
@@ -64,6 +67,9 @@ class Recipe(object):
     @property
     def numStages(self):
         return len(self.stages)
+
+    def setBuildPath(self, path):
+        self._buildPath = path
 
     def numStepsInStage(self, index):
         return len(self.stages[index].get('steps', []))
@@ -148,6 +154,35 @@ class Recipe(object):
         self._currentStage = 0
         self._currentStep = 0
 
+    def save(self):
+        if self._buildPath is None:
+            LOG.error('set buildPath beforing saving the Recipe')
+            return
+
+        data = dict()
+        data['stages'] = []
+
+        allSteps = steps.getAvailableStepsByID()
+        for stageIndex, stage in enumerate(self._responses):
+            stepOutput = []
+            for stepIndex, stepResp in enumerate(stage):
+                stepData = self.getStepFromStage(stageIndex, stepIndex)
+                stepID = self.getStepID(stepData)
+                stepRunner = allSteps[stepID]
+                stepCtx = stepRunner.saveData(stepResp)
+                stepOutput.append({
+                    stepID: stepCtx
+                })
+            
+            s = self.stages[stageIndex]
+            data['stages'].append({
+                'name': s['name'],
+                'steps': stepOutput
+            })
+
+        with open(self._buildPath, 'w') as fp:
+            yaml.safe_dump(data, fp)
+
     def build(self, stepThrough=True):
         if self._currentStage == (self.numStages - 1):
             if self._currentStep == self.numStepsInStage(self._currentStage):
@@ -162,14 +197,11 @@ class Recipe(object):
         self.resolveStepProps(stepProps)
         stepRunner.loadData(stepProps)
         stepResponse = stepRunner.run()
-        LOG.info(stepResponse.asDict())
-        
+
         LOG.info('Step %s completed with a status %s', self._currentStep, stepResponse['status'])
         if len(self._responses) - 1 < self._currentStage:
             self._responses.append([])
         self._responses[self._currentStage].append(stepResponse)
-        
-
 
         if self._currentStep >= self.numStepsInStage(self._currentStage):
             if self._currentStage != (self.numStages - 1):
