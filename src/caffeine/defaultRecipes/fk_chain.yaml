@@ -10,7 +10,7 @@ stages:
           name: "${step0.response.name}_ctl"
           shape: circle
       - com.caffeine.constrain:
-          target: "${step1.response.node}"
+          target: "${step1.response.name}"
           followers:
-            - "${step0.response.node}"
+            - "${step0.response.name}"
           maintainOffset: false

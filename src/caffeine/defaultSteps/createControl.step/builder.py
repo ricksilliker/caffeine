@@ -38,14 +38,14 @@ def build(ctx):
         
         knots = shapeData.get('knots', [])
 
-        # FUTURE: Figure out why this doesnt log.
         LOG.info('Getting shape data.', degree=degree, knots=knots, CVs=points)
 
         addShape(mobject, points, knots, degree, form)
 
     return steps.StepResponse.fromDict({
         'status': 200,
-        'node': mobject
+        'node': mobject,
+        'name': OpenMaya.MFnDependencyNode(mobject).name()
     })
         
 

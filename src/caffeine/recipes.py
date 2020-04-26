@@ -107,25 +107,38 @@ class Recipe(object):
 
     def resolveStepProps(self, props):
         for k, v in props.items():
+            if isinstance(v, (list, tuple)):
+                if all(isinstance(x, (str, unicode)) for x in v):
+                    props[k] = [self.resolveExpression(x) for x in v]
+
             if not isinstance(v, (str, unicode)):
                 continue
 
-            variableMatch = re.match(VARIABLE_EXPR, v)
-            if variableMatch is None:
-                continue
-            fullVar = variableMatch.group(1)
-            stageMatch = re.match(STAGE_EXPR, fullVar)
-            if stageMatch:
-                stageIndex = int(stageMatch.group(2))
-                stage = self.stages[stageIndex]
-                if 'name' in stageMatch.group(3):
-                    props[k] = stage['name']
-            
-            stepMatch = re.match(STEP_RESPONSE_EXPR, fullVar)
-            if stepMatch:
-                stepIndex = int(stepMatch.group(3))
-                stepResponse = self.getStepResponse(self._currentStage, stepIndex)
-                props[k] = stepResponse[stepMatch.group(5)]
+            props[k] = self.resolveExpression(v)
+
+    def resolveExpression(self, v):
+        variableMatch = re.match(VARIABLE_EXPR, v)
+        varConstant = re.sub(VARIABLE_EXPR, '', v)
+
+        if variableMatch is None:
+            return varConstant
+        fullVar = variableMatch.group(1)
+        stageMatch = re.match(STAGE_EXPR, fullVar)
+        if stageMatch:
+            stageIndex = int(stageMatch.group(2))
+            stage = self.stages[stageIndex]
+            if 'name' in stageMatch.group(3):
+                return stage['name'] + varConstant
+        
+        stepMatch = re.match(STEP_RESPONSE_EXPR, fullVar)
+        if stepMatch:
+            stepIndex = int(stepMatch.group(3))
+            stepResponse = self.getStepResponse(self._currentStage, stepIndex)
+            responseKey = str(stepMatch.group(5))
+            if responseKey not in stepResponse:
+                LOG.error('failed to find key in response %s', fullVar)
+                return varConstant
+            return stepResponse[responseKey] + varConstant
 
     def replay(self):
         pass
@@ -149,10 +162,14 @@ class Recipe(object):
         self.resolveStepProps(stepProps)
         stepRunner.loadData(stepProps)
         stepResponse = stepRunner.run()
+        LOG.info(stepResponse.asDict())
+        
         LOG.info('Step %s completed with a status %s', self._currentStep, stepResponse['status'])
         if len(self._responses) - 1 < self._currentStage:
             self._responses.append([])
         self._responses[self._currentStage].append(stepResponse)
+        
+
 
         if self._currentStep >= self.numStepsInStage(self._currentStage):
             if self._currentStage != (self.numStages - 1):

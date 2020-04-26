@@ -146,6 +146,12 @@ class StepResponse(object):
     def __getitem__(self, key):
         return self._data.get(key, None)
 
+    def __contains__(self, key):
+        if key in self._data:
+            return True
+
+        return False
+
     def asDict(self):
         result = {}
 

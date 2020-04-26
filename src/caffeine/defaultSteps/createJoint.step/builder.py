@@ -13,5 +13,6 @@ def build(ctx):
 
     return steps.StepResponse.fromDict({
         'status': 200,
-        'node': obj
+        'node': obj,
+        'name': OpenMaya.MFnDependencyNode(obj).name()
     })
