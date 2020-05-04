@@ -47,7 +47,11 @@ def build(ctx):
         'node': mobject,
         'name': OpenMaya.MFnDependencyNode(mobject).name()
     })
-        
+
+
+def save(ctx, response):
+    pass
+
 
 def addShape(dagTransform, controlPoints, knots, degree, form):
     newCurve = OpenMaya.MFnNurbsCurve().create(
