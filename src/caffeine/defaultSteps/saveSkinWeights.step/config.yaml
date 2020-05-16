@@ -1,0 +1,12 @@
+metadata:
+  title: Save Skin Weights
+  id: com.caffeine.saveSkinWeights
+  category: deformers
+  description: Save skin weights out to a file.
+properties:
+  outputPath:
+    type: string
+    description: File path where skin weights will be saved.
+  skin:
+    type: string
+    description: Name of the skincluster.

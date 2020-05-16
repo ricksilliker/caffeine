@@ -8,5 +8,5 @@ properties:
     type: nodePath
     description: Node to adjust orientation for.
   offset:
-    type: vec3
+    type: vector3
     description: Add this XYZ value to the current orientation.

@@ -1,0 +1,12 @@
+metadata:
+  title: Import File
+  id: com.caffeine.importFile
+  category: file
+  description: Import a file into the current scene.
+properties:
+  namespace:
+    type: string
+    description: Namespace to import file contents into.
+  path:
+    type: string
+    description: File path to a supported file type (.ma, .mb, .fbx).
