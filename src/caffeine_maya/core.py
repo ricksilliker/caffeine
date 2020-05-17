@@ -59,8 +59,9 @@ class ComponentData(object):
 
         if self._mobject.hasFn(OpenMaya.MFn.kJoint):
             self._nodeType = 'Bone'
-
             self._fields.append(ComponentField('name', 'str'))
+            self._fields.append(ComponentField('initialTransform', 'transform'))
+
 
     @property
     def fields(self):
@@ -75,13 +76,18 @@ class ComponentData(object):
 
 
 class ComponentField(object):
-    def __init__(self, name, dataType):
+    def __init__(self, name, dataType, group=None):
         self._dataType = dataType
         self._name = name
+        self._group = group
 
     @property
     def dataType(self):
         return self._dataType
+
+    @property
+    def group(self):
+        return self._group
 
     @property
     def name(self):
