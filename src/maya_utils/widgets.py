@@ -1,7 +1,6 @@
 import logging
 import platform
 
-from maya.api import OpenMaya
 from maya import OpenMayaUI
 from shiboken2 import wrapInstance
 from PySide2 import QtWidgets, QtCore, QtGui
