@@ -13,3 +13,7 @@ properties:
   intialTransform:
     type: transform
     description: Local transformation that this bone starts at.
+  bone:
+    type: nodePath
+    description: Used as storage after creation.
+    hidden: true

@@ -7,7 +7,6 @@ import yaml
 from caffeine import logs, steps
 
 
-DEFAULT_RECIPES = os.path.join(os.path.dirname(__file__), 'defaultRecipes')
 LOG = logs.getLogger(__name__)
 VARIABLE_EXPR = re.compile(r'^\${(.*)}')
 STAGE_EXPR = re.compile(r'^(stage(\d*).(.*))')
@@ -36,10 +35,6 @@ def loadRecipesFromPath(path):
             recipes.append(recipe)
 
     return recipes
-
-
-def loadDefaultRecipes():
-    return loadRecipesFromPath(DEFAULT_RECIPES)
 
 
 class Recipe(object):

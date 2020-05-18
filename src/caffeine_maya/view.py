@@ -6,6 +6,7 @@ from maya import OpenMayaUI
 from shiboken2 import wrapInstance
 from PySide2 import QtWidgets, QtCore, QtGui
 
+from caffeine import panels
 import core
 
 
@@ -13,116 +14,16 @@ LOG = logging.getLogger(__name__)
 
 
 def mayaMainWindow():
-    """Get Maya's main window as a QWidget."""
     OpenMayaUI.MQtUtil.mainWindow()
     ptr = OpenMayaUI.MQtUtil.mainWindow()
 
     return wrapInstance(long(ptr), QtWidgets.QWidget)
 
 
-class RigHierarchyWidget(QtWidgets.QWidget):
-    rigComponentAdded = QtCore.Signal()
-    selectionChanged = QtCore.Signal(dict)
-    _instance = []
-
-    ObjectRole = QtCore.Qt.UserRole + 1
-    TypeRole = QtCore.Qt.UserRole + 2
-
-    def __init__(self, parent=None):
-        super(RigHierarchyWidget, self).__init__(parent=parent)
-
-        self._instance.append(self)
-
-        self._initMain()
-
-        mainLayout = QtWidgets.QVBoxLayout(self)
-        mainLayout.setAlignment(QtCore.Qt.AlignTop)
-        mainLayout.setContentsMargins(0, 0, 0, 0)
-        mainLayout.setSpacing(0)
-
-        headerLayout = QtWidgets.QHBoxLayout()
-        mainLayout.addLayout(headerLayout)
-
-        self.addMenu = QtWidgets.QMenu()
-        self.addMenu.addAction('New Bone', self.addNewBoneCallback)
-        self.addMenu.addAction('New Control', self.addNewControlCallback)
-        self.addMenu.addAction('New Space', self.addNewSpaceCallback)
-
-        self.addButton = QtWidgets.QPushButton('Add')
-        self.addButton.setMenu(self.addMenu)
-        headerLayout.addWidget(self.addButton)
-
-        self.rigHierarchyModel = QtGui.QStandardItemModel()
-
-        self.rigHierarchyView = QtWidgets.QTreeView()
-        self.rigHierarchyView.setModel(self.rigHierarchyModel)
-        mainLayout.addWidget(self.rigHierarchyView)
-
-        self.rigComponentAdded.connect(self.refreshRigHierarchyView)
-        self.rigHierarchyView.clicked.connect(self.selectionChangedCallback)
-
-    @classmethod
-    def run(cls):
-        app = mayaMainWindow()
-
-        widget = cls(parent=app)
-
-        widget.setWindowFlags(widget.windowFlags() | QtCore.Qt.Window)
-
-        if platform.system() == 'Darwin':
-            # MacOS is special, and the QtCore.Qt.Window flag does not sort the windows properly,
-            # so QtCore.Qt.Tool is added.
-            widget.setWindowFlags(widget.windowFlags() | QtCore.Qt.Dialog)
-
-        # Center the widget with Maya's main window.
-        widget.move(app.frameGeometry().center() - QtCore.QRect(QtCore.QPoint(), widget.sizeHint()).center())
-
-        widget.show()
-        widget.rigComponentAdded.emit()
-
-        return widget
-
-    @classmethod
-    def findInstance(cls):
-        return cls._instance[0]
-
-    def _initMain(self):
-        self.setWindowTitle('Rig Hierarchy')
-        self.setObjectName('RigHierarchyWidget')
-
-    def refreshRigHierarchyView(self):
-        self.rigHierarchyModel.clear()
-        components = core.getRigComponents()
-
-        for c in components:
-            item = QtGui.QStandardItem(c['name'])
-            item.setData(c['node'], RigHierarchyWidget.ObjectRole)
-            item.setData('Bone', RigHierarchyWidget.TypeRole)
-            c['item'] = item
-
-        for c in components:
-            parentIndex = c.get('parent', None)
-            if parentIndex is None:
-                self.rigHierarchyModel.appendRow(c['item'])
-                continue
-            parentItem = components[parentIndex]['item']
-            parentItem.appendRow(c['item'])
-
-    def selectionChangedCallback(self, modelIndex):
-        mobject = self.rigHierarchyModel.data(modelIndex, RigHierarchyWidget.ObjectRole)
-        componentData = core.ComponentData.getComponentData(mobject)
-        nodeType = self.rigHierarchyModel.data(modelIndex, RigHierarchyWidget.TypeRole)
-        self.selectionChanged.emit({'nodeType': nodeType, 'node': componentData})
-
-    def addNewBoneCallback(self):
-        core.createNewBone()
-        self.rigComponentAdded.emit()
-
-    def addNewControlCallback(self):
-        pass
-
-    def addNewSpaceCallback(self):
-        pass
+def showRigHierarchyPanel():
+    parent = mayaMainWindow()
+    widget = panels.RigHierarchyWidget.run(parent)
+    widget.setCallback('collectBlueprints', core.getActiveBlueprints)
 
 
 class InspectorWidget(QtWidgets.QWidget):
@@ -131,7 +32,7 @@ class InspectorWidget(QtWidgets.QWidget):
     def __init__(self, parent=None):
         super(InspectorWidget, self).__init__(parent=parent)
 
-        self._childrenWidgetList = []
+        self._childrenComponentWidgets = []
 
         self._initMain()
 
@@ -163,16 +64,11 @@ class InspectorWidget(QtWidgets.QWidget):
         widget.move(app.frameGeometry().center() - QtCore.QRect(QtCore.QPoint(), widget.sizeHint()).center())
 
         rigHierarchyWidget = RigHierarchyWidget.findInstance()
-        print rigHierarchyWidget
         if rigHierarchyWidget is not None and rigHierarchyWidget.isVisible():
-            print 'connected'
             rigHierarchyWidget.selectionChanged.connect(widget.selectionChangedCallback)
+            widget.refreshInspectorView()
 
         widget.show()
-
-        # d = DataWidget('Bone', core.ComponentData())
-        # widget._childrenWidgetList.append(d)
-        widget.refreshInspectorView()
 
         return widget
 
@@ -187,14 +83,13 @@ class InspectorWidget(QtWidgets.QWidget):
 
     def refreshInspectorView(self):
         self.clean()
-        for dataWidget in self._childrenWidgetList:
+        for dataWidget in self._childrenComponentWidgets:
             self._mainLayout.addWidget(dataWidget)
 
     def selectionChangedCallback(self, data):
-        print data
-        self._childrenWidgetList = []
+        self._childrenComponentWidgets = []
         widget = DataWidget(data['nodeType'], data['node'])
-        self._childrenWidgetList.append(widget)
+        self._childrenComponentWidgets.append(widget)
         self.refreshInspectorView()
 
 
@@ -333,18 +228,38 @@ class FieldWidgetFactory(QtWidgets.QWidget):
         return FieldWidgetFactory.getFieldWidgets().get(dataType, NullFieldWidget)
 
 
-
 class StringFieldWidget(FieldWidgetFactory):
     dataType = 'str'
 
-    def __init__(self):
+    def __init__(self, propData):
+        self._propData = propData
         super(StringFieldWidget, self).__init__()
         self.field = QtWidgets.QLineEdit('')
         self._mainLayout.addWidget(self.field)
-        self.field.textChanged.connect(self.valueChangedCallback)
 
-    def valueChangedCallback(self, text):
-        return str(text)
+    def load(self):
+        data = self._propData.value
+        self.field.setText(data)
+
+    def save(self):
+        self._propData.value = str(self.field.text())
+
+
+class BoolFieldWidget(FieldWidgetFactory):
+    dataType = 'bool'
+
+    def __init__(self, propData):
+        self._propData = propData
+        super(BoolFieldWidget, self).__init__()
+        self.field = QtWidgets.QCheckBox('')
+        self._mainLayout.addWidget(self.field)
+
+    def load(self):
+        data = self._propData.value
+        self.field.setChecked(data)
+
+    def save(self):
+        self._propData.value = self.field.isChecked()
 
 
 class NullFieldWidget(FieldWidgetFactory):
@@ -352,5 +267,5 @@ class NullFieldWidget(FieldWidgetFactory):
 
     def __init__(self):
         super(NullFieldWidget, self).__init__()
-        self.field = QtWidgets.QLabel('No value')
+        self.field = QtWidgets.QLabel('No valid value')
         self._mainLayout.addWidget(self.field)

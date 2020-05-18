@@ -33,6 +33,21 @@ def get_world_matrix(transform):
     return m_matrix
 
 
+def get_local_matrix(transform):
+    is_transform = transform.hasFn(OpenMaya.MFn.kTransform)
+    if isinstance(transform, OpenMaya.MObject) and is_transform:
+        transform = OpenMaya.MFnDependencyNode(transform).name()
+
+    if not isinstance(transform, (str, unicode)):
+        LOG.exception('transform must be the node name or full node path.')
+        return
+
+    matrix_array = cmds.xform(transform, q=True, objectSpace=True, matrix=True)
+    m_matrix = OpenMaya.MMatrix(matrix_array)
+
+    return m_matrix
+
+
 def get_matrix_row(matrix, row_index):
     """Get the row vector of a matrix.
 

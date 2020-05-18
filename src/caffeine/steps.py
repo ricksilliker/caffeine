@@ -42,42 +42,31 @@ def loadStepFromPath(path):
         err = dict(name='MissingBuilderError', message='could not find Step builder file', path=path)
         return None, err
 
-    return StepRunner(builder, config), None
+    return StepData(builder, config), None
 
 
 def loadStepsFromDirectory(path):
     steps = []
-
     names = os.listdir(path)
     for name in names:
         if not name.endswith(STEP_SUFFIX):
             continue
-        
         stepPath = os.path.join(path, name)
         step, err = loadStepFromPath(stepPath)
         if err is not None:
             LOG.error('failed to load step', **err)
         steps.append(step)
-
     return steps
 
 
-def loadDefaultSteps():
-    path = os.path.join(os.path.dirname(__file__), 'defaultSteps')
-    
-    return loadStepsFromDirectory(path)
-
-
-def getAvailableStepsByID():
+def getAvailableStepsByID(path):
     result = {}
-    
-    for s in loadDefaultSteps():
+    for s in loadStepFromPath(path):
         result[s.config['metadata']['id']] = s
-
     return result
 
 
-class StepRunner(object):
+class StepData(object):
     def __init__(self, builder, config):
         if not isinstance(builder, types.ModuleType):
             raise ValueError('builder should be a valid python module object')

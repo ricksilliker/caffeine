@@ -1,4 +1,8 @@
+import os
+
 from maya.api import OpenMaya
+
+from caffeine import steps, blueprints
 
 
 def addRigComponentAttr(mobject):
@@ -8,87 +12,58 @@ def addRigComponentAttr(mobject):
     modifier.doIt()
 
 
-def createNewBone():
-    modifier = OpenMaya.MDagModifier()
-    mobject = modifier.createNode('joint')
-    modifier.doIt()
-    dependNode = OpenMaya.MFnDependencyNode(mobject)
-    dependNode.setName('NewBone#')
-    addRigComponentAttr(mobject)
+def hasRigComponentAttr(obj):
+    if isinstance(obj, OpenMaya.MObject):
+        return OpenMaya.MFnDependencyNode(obj).hasAttribute('rigComponent')
+    if isinstance(obj, (OpenMaya.MFnDagNode, OpenMaya.MFnDependencyNode)):
+        return obj.hasAttribute('rigComponent')
+    return False
 
 
-def getRigComponents():
-    result = []
+def getAvailableBlueprints():
+    d = os.path.join(os.path.dirname(__file__), 'defaultBlueprints')
+    return blueprints.loadAvailableByTitle(d)
 
+
+def getBlueprintFromNode(node):
+    if node.hasFn(OpenMaya.MFn.kJoint):
+        bp = getAvailableBlueprints()['Bone']
+        inst = bp.getInstance()
+        inst.updateFromContext(node=node.node())
+        return inst
+
+
+def getActiveBlueprints(hierarchy):
+    def _addToHierarchy(h, node, parentIndex=None):
+        bp = getBlueprintFromNode(node)
+        if parentIndex is None:
+            index = hierarchy.addBlueprint(bp)
+        else:
+            index = hierarchy.addChild(parentIndex, bp)
+        for i in range(node.childCount()):
+            dagNode = OpenMaya.MFnDagNode(node.child(i))
+            _addToHierarchy(h, dagNode, index)
+
+    for n in getTopNodes():
+        _addToHierarchy(hierarchy, n)
+
+    return hierarchy
+
+
+def getTopNodes():
     iterator = OpenMaya.MItDag()
+    topNodes = []
     while not iterator.isDone():
-        dagNode = OpenMaya.MFnDagNode(iterator.getPath())
-        if not dagNode.hasAttribute('rigComponent'):
+        if iterator.depth() > 1:
             iterator.next()
             continue
-        parent = dagNode.parent(0)
-        if parent.hasFn(OpenMaya.MFn.kWorld):
-            parent = None
-        result.append({
-            'name': dagNode.name(),
-            'node': iterator.currentItem(),
-            'parent': parent
-        })
-        iterator.next()
-
-    for nodeData in result:
-        if nodeData['parent'] is None:
+        if iterator.currentItem.hasFn(OpenMaya.MFn.kWorld):
+            iterator.next()
             continue
-        for i, x in enumerate(result):
-            if isinstance(nodeData['parent'], OpenMaya.MObject):
-                if nodeData['parent'] == x['node']:
-                    nodeData['parent'] = i
-                    continue
-    return result
-
-
-class ComponentData(object):
-    def __init__(self):
-        self._mobject = None
-        self._nodeType = ''
-        self._fields = []
-
-    def initialize(self):
-        if self._mobject is None:
-            return
-
-        if self._mobject.hasFn(OpenMaya.MFn.kJoint):
-            self._nodeType = 'Bone'
-            self._fields.append(ComponentField('name', 'str'))
-            self._fields.append(ComponentField('initialTransform', 'transform'))
-
-
-    @property
-    def fields(self):
-        return self._fields
-
-    @classmethod
-    def getComponentData(cls, mobject):
-        result = cls()
-        result._mobject = mobject
-        result.initialize()
-        return result
-
-
-class ComponentField(object):
-    def __init__(self, name, dataType, group=None):
-        self._dataType = dataType
-        self._name = name
-        self._group = group
-
-    @property
-    def dataType(self):
-        return self._dataType
-
-    @property
-    def group(self):
-        return self._group
-
-    @property
-    def name(self):
-        return self._name
+        if not hasRigComponentAttr(dagNode):
+            iterator.next()
+            continue
+        dagNode = OpenMaya.MFnDagNode(iterator.getPath())
+        topNodes.append(dagNode)
+        iterator.next()
+    return topNodes
