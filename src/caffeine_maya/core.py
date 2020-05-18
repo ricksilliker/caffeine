@@ -20,22 +20,26 @@ def hasRigComponentAttr(obj):
     return False
 
 
+def getDefaultBlueprintPath():
+    return os.path.join(os.path.dirname(__file__), 'defaultBlueprints')
+
+
 def getAvailableBlueprints():
-    d = os.path.join(os.path.dirname(__file__), 'defaultBlueprints')
+    d = getDefaultBlueprintPath()
     return blueprints.loadAvailableByTitle(d)
 
 
 def getBlueprintFromNode(node):
     if node.hasFn(OpenMaya.MFn.kJoint):
         bp = getAvailableBlueprints()['Bone']
-        inst = bp.getInstance()
-        inst.updateFromContext(node=node.node())
+        inst = blueprints.BlueprintData(bp.builder, bp.config)
+        inst.updateFromContext(node=node)
         return inst
 
 
 def getActiveBlueprints(hierarchy):
     def _addToHierarchy(h, node, parentIndex=None):
-        bp = getBlueprintFromNode(node)
+        bp = getBlueprintFromNode(node.getPath().node())
         if parentIndex is None:
             index = hierarchy.addBlueprint(bp)
         else:
@@ -57,13 +61,13 @@ def getTopNodes():
         if iterator.depth() > 1:
             iterator.next()
             continue
-        if iterator.currentItem.hasFn(OpenMaya.MFn.kWorld):
-            iterator.next()
-            continue
-        if not hasRigComponentAttr(dagNode):
+        if iterator.currentItem().hasFn(OpenMaya.MFn.kWorld):
             iterator.next()
             continue
         dagNode = OpenMaya.MFnDagNode(iterator.getPath())
+        if not hasRigComponentAttr(dagNode):
+            iterator.next()
+            continue
         topNodes.append(dagNode)
         iterator.next()
     return topNodes

@@ -22,8 +22,9 @@ def mayaMainWindow():
 
 def showRigHierarchyPanel():
     parent = mayaMainWindow()
-    widget = panels.RigHierarchyWidget.run(parent)
+    widget = panels.RigHierarchyWidget.run(core.getDefaultBlueprintPath(), parent)
     widget.setCallback('collectBlueprints', core.getActiveBlueprints)
+    widget.refreshRigHierarchyView()
 
 
 class InspectorWidget(QtWidgets.QWidget):

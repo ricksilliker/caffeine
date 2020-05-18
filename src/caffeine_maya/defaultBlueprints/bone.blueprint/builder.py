@@ -9,7 +9,7 @@ from maya_utils import common, transforms
 LOG = getActionLogger('bone')
 
 
-def create(ctx):
+def create():
     modifier = OpenMaya.MDagModifier()
     mobject = modifier.createNode('joint')
     modifier.doIt()

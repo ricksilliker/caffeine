@@ -1,6 +1,5 @@
 import os
 import types
-import copy
 
 import yaml
 
@@ -61,7 +60,7 @@ def loadFromDirectory(path):
 
 def loadAvailableByTitle(path):
     result = {}
-    for b in loadFromPath(path):
+    for b in loadFromDirectory(path):
         result[b.config['metadata']['title']] = b
     return result
 
@@ -71,7 +70,7 @@ class BlueprintHierarchy(object):
         self.blueprints = []
 
     def addBlueprint(self, bp):
-        res = dict(blueprint=bp, chidlren=[])
+        res = dict(blueprint=bp, children=[])
         if bp in self.blueprints:
             return self.blueprints.index(bp)
         self.blueprints.append(res)
@@ -81,6 +80,9 @@ class BlueprintHierarchy(object):
         childIndex = self.addBlueprint(bp)
         self.blueprints[parentIndex]['children'].append(childIndex)
         return childIndex
+
+    def clear(self):
+        self.blueprints = []
 
 
 class BlueprintData(object):
@@ -95,7 +97,7 @@ class BlueprintData(object):
         self._builder = builder
         self._config = config
         self._props = []
-        for name, conf in config['properties']:
+        for name, conf in config['properties'].items():
             self._props.append(props.PropData(name, conf))
 
     @property
@@ -107,22 +109,34 @@ class BlueprintData(object):
         return self._config
 
     @property
+    def builder(self):
+        return self._builder
+
+    @property
+    def name(self):
+        for prop in self._props:
+            if prop.name == 'name':
+                return prop.value
+        return ''
+
+    @property
     def componentType(self):
         return self._config['metadata']['title']
-
-    def getInstance(self):
-        return copy.deepcopy(self)
 
     def create(self):
         try:
             return self._builder.create()
         except Exception as err:
-            LOG.error('failed to create Blueprint', exc_info=True)
+            LOG.exception('failed to create Blueprint')
             e = dict(name='BlueprintCreateError', status=500, message='failed to create Blueprint')
             return BlueprintResponse.fromDict(e)
 
     def updateFromContext(self, **kwargs):
-        self._builder.initCallback(**kwargs)
+        data = self._builder.initCallback(**kwargs)
+        for k, v in data.items():
+            for prop in self._props:
+                if prop.name == k:
+                    prop.value = v
 
 
 class BlueprintResponse(object):

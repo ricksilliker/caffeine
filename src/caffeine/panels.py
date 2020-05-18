@@ -32,7 +32,7 @@ class RigHierarchyWidget(QtWidgets.QWidget):
 
         self.addMenu = QtWidgets.QMenu()
         self._availableBlueprints = blueprints.loadAvailableByTitle(blueprintPath)
-        for name, bp in self._availableBlueprints:
+        for name, bp in self._availableBlueprints.items():
             self.addMenu.addAction(name, lambda x=name: self.addBlueprintCallback(name))
 
         self.addButton = QtWidgets.QPushButton('Add')
@@ -49,8 +49,8 @@ class RigHierarchyWidget(QtWidgets.QWidget):
         self.rigHierarchyView.clicked.connect(self.selectionChangedCallback)
 
     @classmethod
-    def run(cls, parent=None):
-        widget = cls(parent=parent)
+    def run(cls, blueprintPath, parent=None):
+        widget = cls(blueprintPath, parent=parent)
 
         widget.setWindowFlags(widget.windowFlags() | QtCore.Qt.Window)
 
@@ -64,7 +64,6 @@ class RigHierarchyWidget(QtWidgets.QWidget):
             widget.move(parent.frameGeometry().center() - QtCore.QRect(QtCore.QPoint(), widget.sizeHint()).center())
 
         widget.show()
-        widget.rigComponentAdded.emit()
 
         return widget
 
@@ -86,10 +85,12 @@ class RigHierarchyWidget(QtWidgets.QWidget):
 
     def refreshRigHierarchyView(self):
         self.rigHierarchyModel.clear()
-        collectBlueprintsCB = self._callbacks.get('collectBlueprints', None)
-        if collectBlueprintsCB is None:
+        self._blueprintHierarchy.clear()
+        callbacks = self._callbacks.get('collectBlueprints', None)
+        if callbacks is None:
             return
-        collectBlueprintsCB(self._blueprintHierarchy)
+        for cb in callbacks:
+            cb(self._blueprintHierarchy)
 
         items = []
         for bp in self._blueprintHierarchy.blueprints:
@@ -100,15 +101,17 @@ class RigHierarchyWidget(QtWidgets.QWidget):
             childIndices = bp['children']
             for index in childIndices:
                 item.appendRow(items[index])
+            if not childIndices:
+                self.rigHierarchyModel.appendRow(item)
 
     def selectionChangedCallback(self, modelIndex):
         blueprintData = self.rigHierarchyModel.data(modelIndex, RigHierarchyWidget.ObjectRole)
         self.selectionChanged.emit(blueprintData)
 
     def addBlueprintItem(self, blueprintData):
-        item = QtGui.QStandardItem(blueprintData.name)
-        item.setData(blueprintData, RigHierarchyWidget.ObjectRole)
-        item.setData(blueprintData.componentType, RigHierarchyWidget.TypeRole)
+        item = QtGui.QStandardItem(blueprintData['blueprint'].name)
+        item.setData(blueprintData['blueprint'], RigHierarchyWidget.ObjectRole)
+        item.setData(blueprintData['blueprint'].componentType, RigHierarchyWidget.TypeRole)
         return item
 
     def addBlueprintCallback(self, name):
